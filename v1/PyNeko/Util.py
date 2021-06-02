@@ -13,7 +13,8 @@ import subprocess
 from ._Imports import *
 
 
-class Util:
+
+class Process:
 
     @staticmethod
     # シェルコマンドの実行
