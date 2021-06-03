@@ -9,17 +9,32 @@
 import os
 import json
 import subprocess
-from typing import List, Tuple, Dict, Set
+import inspect
+from typing import List, Tuple, Dict, Set, Callable, TypeVar, Type
 import typing
 
 from ._Imports import *
 
+SameType = TypeVar("SameType")
+
 
 class Err(Exception):
-    pass
-    
+    def __init__(self, str: str):
+        pass
+
 
 class Str:
+    @staticmethod
+    def GetLines(src: str, removeEmpty: bool = False, trim: bool = False) -> List[str]:
+        ret: List[str] = list()
+        for line in Str.NonNull(src).splitlines():
+            if trim:
+                line = Str.Trim(line)
+
+            if not removeEmpty or Str.IsFilled(line):
+                ret.append(line)
+        return ret
+
     @staticmethod
     def IsNull(str: str) -> bool:
         return Util.IsNull(str)
@@ -101,11 +116,41 @@ class Str:
             return object
 
         return Json.ObjectToJson(object)
+    
+    @staticmethod
+    def Combine(strList: list, splitStr: str = ", ", removeEmpty: bool = False) -> str:
+        ret = ""
+        tmpList: List[str] = list()
+
+        for item in strList:
+            s = Str.GetStr(item)
+            if not removeEmpty or Str.IsFilled(s):
+                tmpList.append(s)
+        
+        num = len(tmpList)
+        for i in range(num):
+            ret += tmpList[i]
+
+            if i != (num - 1):
+                ret += splitStr
+        
+        return ret
+
+    @staticmethod
+    def OneLine(src: str, splitStr: str = " / ", removeEmpty: bool = True) -> str:
+        src = Str.GetStr(src)
+        lines = Str.GetLines(src, removeEmpty=True, trim=True)
+        return Str.Combine(lines, splitStr, removeEmpty)
+
 
 def Print(obj: any) -> str:
     s = Str.GetStr(obj)
     print(s)
     return s
+
+def GetStr(obj: any) -> str:
+    return Str.GetStr(obj)
+
 
 class Util:
     @staticmethod
@@ -135,18 +180,19 @@ class Util:
             return True
 
         return False
-    
+
     @staticmethod
     def IsTypeOf(object: any, baseType: type) -> bool:
         return isinstance(object, baseType)
-    
+
     @staticmethod
     def IsClass(object: any) -> bool:
         return hasattr(object, "__dict__")
-    
+
     @staticmethod
     def IsPrimitive(object: any) -> bool:
-        if Util.IsNull(object): return True
+        if Util.IsNull(object):
+            return True
         return isinstance(object, (int, float, bool, str, bytes, bytearray, memoryview))
 
     @staticmethod
@@ -154,7 +200,7 @@ class Util:
         if Util.IsClass(object):
             return object.__dict__
         raise Err("Not a class object.")
-    
+
     @staticmethod
     def GetClassAttributesOrItself(object: any):
         if Util.IsClass(object):
@@ -163,24 +209,34 @@ class Util:
 
 
 class EasyExecResults:
-    def __init__(self):
-        self.Result: subprocess.CompletedProcess = None
-        self.IsOk: bool = False
-        self.StdOut: str = ""
-        self.StdErr: str = ""
-        self.StdOutAndErr: str = ""
-        self.ExitCode: int = -1
+    Result: subprocess.CompletedProcess
+    IsOk: bool
+    StdOut: str
+    StdErr: str
+    StdOutAndErr: str
+    ExitCode: int
+    Cmd: str
 
-    def InitFromCompletedProcess(self, res: subprocess.CompletedProcess):
+    def InitFromCompletedProcess(self, res: subprocess.CompletedProcess, cmd: str):
         self.Result = res
         self.ExitCode = res.returncode
         self.IsOk = (res.returncode == 0)
         self.StdOut = Str.ToStr(res.stdout)
         self.StdErr = Str.ToStr(res.stderr)
         self.StdOutAndErr = self.StdOut + "\n" + self.StdErr + "\n"
+        self.Cmd = Str.NonNull(cmd)
 
     def ThrowIfError(self):
-        self.Result.check_returncode()
+        if not self.IsOk:
+            errOneLine = Str.OneLine(self.StdErr)
+            outOneLine = Str.OneLine(self.StdOut)
+            tmp = f"Command '{self.Cmd}' returned exit code {self.ExitCode}."
+            if Str.IsFilled(errOneLine):
+                tmp += f" Error string: {errOneLine}"
+            if Str.IsFilled(outOneLine):
+                tmp += f" Output string: {outOneLine}"
+
+            raise Err(tmp)
 
 
 class EasyExec:
@@ -198,7 +254,7 @@ class EasyExec:
                              timeout=timeoutSecs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         ret = EasyExecResults()
-        ret.InitFromCompletedProcess(res)
+        ret.InitFromCompletedProcess(res, command)
 
         if not ignoreError:
             ret.ThrowIfError()
@@ -216,10 +272,115 @@ class Json:
     @staticmethod
     def ObjectToJson(obj: any, compact: bool = False, skipKeys: bool = False) -> str:
         return Str.NonNull(json.dumps(obj, indent=1 if not compact else None, skipkeys=skipKeys, default=Util.GetClassAttributesOrItself))
-    
+
     @staticmethod
     def JsonToData(str: str):
         return json.loads(str)
 
+    @staticmethod
+    def JsonToObject(str: str, cls: Type[SameType] = None, exact: bool = False) -> SameType:
+        if cls is None or cls is any:
+            return Json.JsonToData(str)
 
+        data = Json.JsonToData(str)
+        return Json._ConvertJsonDataToClassInternal(data, cls, exact)
 
+    @staticmethod
+    def JsonLinesToDataList(str: str) -> List[SameType]:
+        lines = Str.GetLines(str, removeEmpty=True)
+        ret = list()
+        for line in lines:
+            obj = Json.JsonToData(line)
+            ret.append(obj)
+        return ret
+
+    @staticmethod
+    def JsonLinesToObjectList(str: str, cls: Type[SameType] = None, exact: bool = False) -> List[SameType]:
+        lines = Str.GetLines(str, removeEmpty=True)
+        ret: List[cls] = list()
+        for line in lines:
+            obj = Json.JsonToObject(line, cls, exact)
+            ret.append(obj)
+        return ret
+
+    @staticmethod
+    # 参考: https://stackoverflow.com/questions/15476983/deserialize-a-json-string-to-an-object-in-python
+    def _ConvertJsonDataToClassInternal(data: any, cls: Type[SameType], exact: bool = False) -> SameType:
+        annotations: dict = cls.__annotations__ if hasattr(
+            cls, '__annotations__') else None
+
+        if isinstance(cls, typing._GenericAlias):
+            # アノテーションとして指定されているものが typing の Generics 型である
+            baseClass = cls.__origin__
+            if issubclass(baseClass, List):
+                # List 型である
+                listType = cls.__args__[0]
+                instance = list()
+                for value in data:
+                    instance.append(
+                        Json._ConvertJsonDataToClassInternal(value, listType), exact)
+                return instance
+            elif issubclass(baseClass, Dict):
+                # Dict 型である
+                keyType = cls.__args__[0]
+                valueType = cls.__args__[1]
+                instance = dict()
+                for key, value in data.items():
+                    instance[Json._ConvertJsonDataToClassInternal(
+                        key, keyType, exact)] = Json._ConvertJsonDataToClassInternal(value, valueType, exact)
+                return instance
+            else:
+                typeName = baseClass.__name__
+                raise Err(f"Unsupported generics: {typeName}")
+
+        elif issubclass(cls, list):
+            # アノテーションとして指定されているものが組み込み list 型である
+            list_type = cls.__args__[0]
+            instance: list = list()
+            for value in data:
+                instance.append(
+                    Json._ConvertJsonDataToClassInternal(value, list_type, exact))
+            return instance
+
+        elif issubclass(cls, Dict):
+            # アノテーションとして指定されているものが組み込み dict 型である
+            key_type = cls.__args__[0]
+            val_type = cls.__args__[1]
+            instance: dict = dict()
+            for key, value in data.items():
+                instance[Json._ConvertJsonDataToClassInternal(
+                    key, key_type)] = Json._ConvertJsonDataToClassInternal(value, val_type, exact)
+            return instance
+
+        else:
+            # 指定された型のクラスのインスタンスを生成する
+            instance: cls = cls()
+
+            if Util.IsPrimitive(instance):
+                # プリミティブな単一の値である
+                return data
+
+            # 入力される JSON データの項目を列挙する
+            for name, value in data.items():
+                # 列挙された項目と同じ名前のアノテーションが存在するかどうか検索する
+                field_type = annotations.get(name)
+
+                if not field_type:
+                    # アノテーションが見つからない
+                    if not exact:
+                        setattr(instance, name, value)
+                else:
+                    if inspect.isclass(field_type) and isinstance(value, (dict, tuple, list, set, frozenset)) and not isinstance(field_type, typing._GenericAlias):
+                        # アノテーションによると、型はクラスのインスタンスである
+                        setattr(instance, name, Json._ConvertJsonDataToClassInternal(
+                            value, field_type, exact))
+                    elif isinstance(field_type, typing._GenericAlias):
+                        # アノテーションによると、型は Generics のインスタンスである
+                        setattr(instance, name, Json._ConvertJsonDataToClassInternal(
+                            value, field_type, exact))
+
+                    else:
+                        # アノテーションによると、型は str, int 等の普通の型である
+                        setattr(instance, name, value)
+
+            return instance
