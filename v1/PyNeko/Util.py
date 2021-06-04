@@ -5,6 +5,7 @@
 #
 # Author: Daiyuu Nobori
 # ユーティリティ
+# 2021/06/02 に生まれて初めて書いたインチキ Python スクリプト！！
 
 import os
 import json

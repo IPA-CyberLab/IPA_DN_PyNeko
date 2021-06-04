@@ -44,7 +44,7 @@ class Docker:
 
     @staticmethod
     def RestartContainer(name: str):
-        Docker.RunDockerCommand(["rstart", name], json=False)
+        Docker.RunDockerCommand(["restart", name], json=False)
 
     @staticmethod
     def DeleteContainer(name: str):
