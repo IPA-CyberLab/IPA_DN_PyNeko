@@ -15,12 +15,9 @@ SameType = TypeVar("SameType")
 
 
 class DockerConsts:
-    _DOCKER_CMD_PATH = "/usr/bin/docker"
-    _DOCKER_CMD_TIMEOUT_SECS = 15
-    _DOCKER_APPEND_JSON_FORMAT_STR = "--format={{json .}}"
+    pass
 
-
-class DockerProcessItem:
+class DockerContainerItem:
     Command: str
     CreatedAt: str
     ID: str
@@ -37,27 +34,38 @@ class DockerProcessItem:
     Status: str
 
 class Docker:
+    DOCKER_CMD_PATH = "/usr/bin/docker"
+    DOCKER_CMD_TIMEOUT_SECS = 60
+    DOCKER_APPEND_JSON_FORMAT_STR = "--format={{json .}}"
 
     @staticmethod
-    def RunDockerCommand(argsList: List[str], ignoreError: bool = False, timeoutSecs=DockerConsts._DOCKER_CMD_TIMEOUT_SECS, json: bool = True) -> EasyExecResults:
-        newArgs = argsList.copy()
-        newArgs.insert(0, DockerConsts._DOCKER_CMD_PATH)
-        if json:
-            newArgs.append(DockerConsts._DOCKER_APPEND_JSON_FORMAT_STR)
+    def GetContainer(name: str) -> DockerContainerItem:
+        return Single([x for x in Docker.GetContainerList() if x.Names == name])
 
-        return EasyExec.RunPiped(newArgs, shell=False,
-                                 ignoreError=ignoreError, timeoutSecs=timeoutSecs)
+    @staticmethod
+    def GetContainerList() -> List[DockerContainerItem]:
+        return Docker.RunDockerCommandJson(["ps", "-a"], DockerContainerItem)
     
     @staticmethod
-    def RunDockerCommandJsonDebug(argsList: List[str], timeoutSecs=DockerConsts._DOCKER_CMD_TIMEOUT_SECS) -> EasyExecResults:
+    def RunDockerCommandJsonDebug(argsList: List[str], timeoutSecs=None) -> EasyExecResults:
         res = Docker.RunDockerCommand(argsList, False, timeoutSecs, True)
         data = Json.JsonLinesToDataList(res.StdOut)
         Print(data)
         return res
 
     @staticmethod
-    def RunDockerCommandJson(argsList: List[str], cls: Type[SameType] = None, timeoutSecs=DockerConsts._DOCKER_CMD_TIMEOUT_SECS, exact: bool = False) -> List[SameType]:
+    def RunDockerCommandJson(argsList: List[str], cls: Type[SameType] = None, timeoutSecs=None, exact: bool = False) -> List[SameType]:
         res = Docker.RunDockerCommand(argsList, False, timeoutSecs, True)
         return Json.JsonLinesToObjectList(res.StdOut, cls, exact)
 
-    
+    @staticmethod
+    def RunDockerCommand(argsList: List[str], ignoreError: bool = False, timeoutSecs=None, json: bool = True) -> EasyExecResults:
+        if timeoutSecs is None:
+            timeoutSecs = Docker.DOCKER_CMD_TIMEOUT_SECS
+        newArgs = argsList.copy()
+        newArgs.insert(0, Docker.DOCKER_CMD_PATH)
+        if json:
+            newArgs.append(Docker.DOCKER_APPEND_JSON_FORMAT_STR)
+
+        return EasyExec.RunPiped(newArgs, shell=False,
+                                 ignoreError=ignoreError, timeoutSecs=timeoutSecs)

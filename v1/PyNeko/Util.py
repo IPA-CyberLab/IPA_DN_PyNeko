@@ -18,12 +18,142 @@ from ._Imports import *
 SameType = TypeVar("SameType")
 
 
+def Single(seq):
+    if hasattr(seq, "__len__"):
+        assert len(seq) == 1
+        return seq[0]
+    else:
+        i = iter(seq)
+        try:
+            value = i.next()
+        except StopIteration:
+            raise AssertionError()
+        try:
+            i.next()
+        except StopIteration:
+            return value
+        else:
+            raise AssertionError()
+
+
 class Err(Exception):
     def __init__(self, str: str):
         pass
 
 
 class Str:
+    NEWLINE_CELF = "\r\n"
+    NEWLINE_CR = "\r"
+    NEWLINE_LF = "\n"
+
+    # 文字列を大文字・小文字を区別して比較
+    @staticmethod
+    def IsSame(s1: str, s2: str) -> bool:
+        return Str.StrCmp(s1, s2)
+
+    @staticmethod
+    def StrCmp(s1: str, s2: str) -> bool:
+        s1 = Str.NonNull(s1)
+        s2 = Str.NonNull(s2)
+        return s1 == s2
+
+    @staticmethod
+    def Cmp(s1: str, s2: str) -> int:
+        return Str.StrCmpRetInt(s1, s2)
+
+    @staticmethod
+    def StrCmpRetInt(s1: str, s2: str) -> int:
+        s1 = Str.NonNull(s1)
+        s2 = Str.NonNull(s2)
+        if (s1 == s2):
+            return 0
+        if (s1 < s2):
+            return 1
+        return -1
+
+    # 文字列を大文字・小文字を区別せずに比較
+    @staticmethod
+    def IsSamei(s1: str, s2: str) -> bool:
+        return Str.StrCmpi(s1, s2)
+
+    @staticmethod
+    def StrCmpi(s1: str, s2: str) -> bool:
+        s1 = Str.NonNull(s1).lower()
+        s2 = Str.NonNull(s2).lower()
+        return s1 == s2
+
+    @staticmethod
+    def Cmpi(s1: str, s2: str) -> int:
+        return Str.StrCmpRetInti(s1, s2)
+
+    @staticmethod
+    def StrCmpRetInti(s1: str, s2: str) -> int:
+        s1 = Str.NonNull(s1).lower()
+        s2 = Str.NonNull(s2).lower()
+        if (s1 == s2):
+            return 0
+        if (s1 < s2):
+            return 1
+        return -1
+
+    # 文字列を置換する
+    @staticmethod
+    def ReplaceStr(str: str, oldKeyword: str, newKeyword: str, caseSensitive: bool = False) -> str:
+        str = Str.NonNull(str)
+        if Str.IsNullOrZeroLen(str):
+            return ""
+        oldKeyword = Str.NonNull(oldKeyword)
+        newKeyword = Str.NonNull(newKeyword)
+        if Str.IsNullOrZeroLen(oldKeyword):
+            return str
+
+        i = 0
+        j = 0
+        num = 0
+        sb = ""
+
+        len_string = len(str)
+        len_old = len(oldKeyword)
+        len_new = len(newKeyword)
+
+        while True:
+            i = Str.SearchStr(str, oldKeyword, i, caseSensitive)
+            if i == -1:
+                sb += str[j:]
+                break
+            num += 1
+            sb += str[j:i]
+            sb += newKeyword
+
+            i += len_old
+            j = i
+
+        return sb
+
+    # 文字列を検索する
+    @staticmethod
+    def SearchStr(str: str, keyword: str, start: int = 0, caseSensitive: bool = False) -> int:
+        str = Str.NonNull(str)
+        keyword = Str.NonNull(keyword)
+        if Str.IsNullOrZeroLen(str) or Str.IsNullOrZeroLen(keyword):
+            return -1
+        if not caseSensitive:
+            str = str.lower()
+            keyword = keyword.lower()
+        return str.find(keyword, start)
+
+    # 文字列が含まれるか?
+    @staticmethod
+    def InStr(str: str, keyword: str, caseSensitive: bool = False) -> bool:
+        str = Str.NonNull(str)
+        keyword = Str.NonNull(keyword)
+        if Str.IsNullOrZeroLen(str) or Str.IsNullOrZeroLen(keyword):
+            return False
+        if not caseSensitive:
+            str = str.lower()
+            keyword = keyword.lower()
+        return keyword in str
+
     @staticmethod
     def GetLines(src: str, removeEmpty: bool = False, trim: bool = False) -> List[str]:
         ret: List[str] = list()
@@ -34,6 +164,12 @@ class Str:
             if not removeEmpty or Str.IsFilled(line):
                 ret.append(line)
         return ret
+
+    @staticmethod
+    def IsNullOrZeroLen(str: str) -> bool:
+        if Str.IsNull(str) or len(str) == 0:
+            return True
+        return False
 
     @staticmethod
     def IsNull(str: str) -> bool:
@@ -116,7 +252,7 @@ class Str:
             return object
 
         return Json.ObjectToJson(object)
-    
+
     @staticmethod
     def Combine(strList: list, splitStr: str = ", ", removeEmpty: bool = False) -> str:
         ret = ""
@@ -126,14 +262,14 @@ class Str:
             s = Str.GetStr(item)
             if not removeEmpty or Str.IsFilled(s):
                 tmpList.append(s)
-        
+
         num = len(tmpList)
         for i in range(num):
             ret += tmpList[i]
 
             if i != (num - 1):
                 ret += splitStr
-        
+
         return ret
 
     @staticmethod
@@ -147,6 +283,7 @@ def Print(obj: any) -> str:
     s = Str.GetStr(obj)
     print(s)
     return s
+
 
 def GetStr(obj: any) -> str:
     return Str.GetStr(obj)
