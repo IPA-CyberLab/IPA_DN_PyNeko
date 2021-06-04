@@ -1,4 +1,7 @@
-﻿# IPA-DN-PyNeko-v1
+﻿#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# IPA-DN-PyNeko-v1
 # 
 # Copyright (c) 2021- IPA CyberLab.
 # All Rights Reserved.
