@@ -39,8 +39,30 @@ class Docker:
     DOCKER_APPEND_JSON_FORMAT_STR = "--format={{json .}}"
 
     @staticmethod
-    def GetContainer(name: str) -> DockerContainerItem:
-        return Single([x for x in Docker.GetContainerList() if x.Names == name])
+    def StopContainer(name: str):
+        Docker.RunDockerCommand(["stop", name], json=False)
+
+    @staticmethod
+    def RestartContainer(name: str):
+        Docker.RunDockerCommand(["rstart", name], json=False)
+
+    @staticmethod
+    def DeleteContainer(name: str):
+        Docker.RunDockerCommand(["rm", "-f", name], json=False)
+
+    @staticmethod
+    def IsContainerExists(name: str, containerList: List[DockerContainerItem] = None) -> bool:
+        c = Docker.GetContainer(name, containerList)
+        if c is None:
+            return False
+        return True
+
+    @staticmethod
+    def GetContainer(name: str, containerList: List[DockerContainerItem] = None) -> DockerContainerItem:
+        if containerList is None:
+            containerList = Docker.GetContainerList()
+
+        return FirstOrDefault([x for x in containerList if x.Names == name])
 
     @staticmethod
     def GetContainerList() -> List[DockerContainerItem]:
@@ -69,3 +91,13 @@ class Docker:
 
         return EasyExec.RunPiped(newArgs, shell=False,
                                  ignoreError=ignoreError, timeoutSecs=timeoutSecs)
+
+    @staticmethod
+    def RunDockerCommandInteractive(argsList: List[str], ignoreError: bool = False, timeoutSecs=None):
+        if timeoutSecs is None:
+            timeoutSecs = Docker.DOCKER_CMD_TIMEOUT_SECS
+        newArgs = argsList.copy()
+        newArgs.insert(0, Docker.DOCKER_CMD_PATH)
+
+        return EasyExec.Run(newArgs, shell=False,
+                                 ignoreError=ignoreError)

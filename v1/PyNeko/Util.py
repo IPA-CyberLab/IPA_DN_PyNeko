@@ -12,15 +12,44 @@ import subprocess
 import inspect
 from typing import List, Tuple, Dict, Set, Callable, TypeVar, Type
 import typing
+from datetime import timedelta, tzinfo, timezone, time, date, datetime
+import time as systime
 
 from ._Imports import *
 
 SameType = TypeVar("SameType")
 
 
+def FirstOrDefault(seq, default: any = None):
+    if hasattr(seq, "__len__"):
+        if len(seq) == 0:
+            return default
+        return seq[0]
+    else:
+        i = iter(seq)
+        try:
+            return i.next()
+        except StopIteration:
+            return default
+
+
+def First(seq):
+    if hasattr(seq, "__len__"):
+        if len(seq) == 0:
+            raise Err(f"First(): no elements.")
+        return seq[0]
+    else:
+        i = iter(seq)
+        try:
+            return i.next()
+        except StopIteration:
+            raise Err(f"First(): no elements.")
+
+
 def Single(seq):
     if hasattr(seq, "__len__"):
-        assert len(seq) == 1
+        if len(seq) != 1:
+            raise Err(f"Single(): len != 1. len = {len(seq)}")
         return seq[0]
     else:
         i = iter(seq)
@@ -39,6 +68,75 @@ def Single(seq):
 class Err(Exception):
     def __init__(self, str: str):
         pass
+
+
+class Time:
+    TIMEZONE_UTC: timezone = timezone.utc
+    TIMEZONE_LOCAL: timezone = datetime.now(
+        timezone.utc).astimezone().tzinfo
+    TIME64_BASE: datetime = datetime(1970, 1, 1, 9, 0, 0, 0, timezone.utc)
+    TICK64_NS_START_BASE: int = systime.perf_counter_ns()
+
+    @staticmethod
+    def UtcNow() -> datetime:
+        return datetime.now(Time.TIMEZONE_UTC)
+
+    @staticmethod
+    def LocalNow() -> datetime:
+        return Time.ToLocal(Time.UtcNow())
+    
+    @staticmethod
+    def Now(tz: timezone = None) -> datetime:
+        if tz is None:
+            tz = Time.TIMEZONE_LOCAL
+        return Time.ToTimezone(Time.UtcNow(), tz)
+
+    @staticmethod
+    def ToTimezone(src: datetime, tz: timezone) -> datetime:
+        return src.astimezone(tz)
+
+    @staticmethod
+    def ToLocal(utcDt: datetime) -> datetime:
+        return Time.ToTimezone(utcDt, Time.TIMEZONE_LOCAL)
+
+    @staticmethod
+    def ToUtc(dt: datetime) -> datetime:
+        return Time.ToTimezone(dt, Time.TIMEZONE_UTC)
+
+    @staticmethod
+    def ToTime64(dt: datetime) -> int:
+        delta = dt - Time.TIME64_BASE
+        ms = int(delta.total_seconds() * 1000)
+        return Time._SafeTime64(ms)
+
+    @staticmethod
+    def FromTime64(ms: int, local: bool = False) -> datetime:
+        ms = Time._SafeTime64(ms)
+        delta = timedelta(milliseconds=ms)
+        ret = Time.TIME64_BASE + delta
+        if local:
+            ret = Time.ToLocal(ret)
+        return ret
+
+    @staticmethod
+    def _SafeTime64(ms: int) -> int:
+        ms = int(ms)
+        ms = max(ms, 0)  # 西暦 1970 年から
+        ms = min(ms, 253370732400000)  # 西暦 9999 年まで
+        return ms
+    
+    @staticmethod
+    def Tick64() -> int:
+        return max(int((systime.perf_counter_ns() - Time.TICK64_NS_START_BASE) / 1000000.0) + 1, 1)
+
+    @staticmethod
+    def FloatTick64() -> int:
+        return float(max(systime.perf_counter_ns() - Time.TICK64_NS_START_BASE + 1, 1)) / 1000000000.0
+
+    @staticmethod
+    def Sleep(ms: int):
+        sec = float(ms) / 1000.0
+        systime.sleep(sec)
 
 
 class Str:
@@ -251,6 +349,9 @@ class Str:
         if Util.IsTypeOf(object, str):
             return object
 
+        if Util.IsSimpleValue(object):
+            return str(object)
+
         return Json.ObjectToJson(object)
 
     @staticmethod
@@ -333,6 +434,12 @@ class Util:
         return isinstance(object, (int, float, bool, str, bytes, bytearray, memoryview))
 
     @staticmethod
+    def IsSimpleValue(object: any) -> bool:
+        if Util.IsPrimitive(object):
+            return True
+        return isinstance(object, (datetime))
+
+    @staticmethod
     def GetClassAttributes(object: any) -> dict:
         if Util.IsClass(object):
             return object.__dict__
@@ -352,16 +459,16 @@ class EasyExecResults:
     StdErr: str
     StdOutAndErr: str
     ExitCode: int
-    Cmd: str
+    Cmd: List[str]
 
-    def InitFromCompletedProcess(self, res: subprocess.CompletedProcess, cmd: str):
+    def InitFromCompletedProcess(self, res: subprocess.CompletedProcess, cmd: List[str]):
         self.Result = res
         self.ExitCode = res.returncode
         self.IsOk = (res.returncode == 0)
         self.StdOut = Str.ToStr(res.stdout)
         self.StdErr = Str.ToStr(res.stderr)
         self.StdOutAndErr = self.StdOut + "\n" + self.StdErr + "\n"
-        self.Cmd = Str.NonNull(cmd)
+        self.Cmd = cmd
 
     def ThrowIfError(self):
         if not self.IsOk:
@@ -378,7 +485,7 @@ class EasyExecResults:
 
 class EasyExec:
     @staticmethod
-    def Run(command: str, shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None):
+    def Run(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None):
         res = subprocess.run(command, shell=shell,
                              encoding="utf-8", text=True, timeout=timeoutSecs)
 
@@ -386,7 +493,7 @@ class EasyExec:
             res.check_returncode()
 
     @staticmethod
-    def RunPiped(command: str, shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None) -> EasyExecResults:
+    def RunPiped(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None) -> EasyExecResults:
         res = subprocess.run(command, shell=shell, encoding="utf-8", text=True,
                              timeout=timeoutSecs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -399,7 +506,7 @@ class EasyExec:
         return ret
 
     @staticmethod
-    def RunBackground(command: str, shell: bool = True) -> subprocess.Popen:
+    def RunBackground(command: List[str], shell: bool = True) -> subprocess.Popen:
         res = subprocess.Popen(command, shell=shell, text=True)
 
         return res

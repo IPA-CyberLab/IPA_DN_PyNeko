@@ -7,6 +7,7 @@
 # Description
 
 from .Util import *
+from .Lfs import *
 from .Docker import *
 
 
