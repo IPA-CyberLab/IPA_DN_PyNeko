@@ -78,18 +78,18 @@ class Time:
     TICK64_NS_START_BASE: int = systime.perf_counter_ns()
 
     @staticmethod
-    def UtcNow() -> datetime:
+    def NowUtc() -> datetime:
         return datetime.now(Time.TIMEZONE_UTC)
 
     @staticmethod
-    def LocalNow() -> datetime:
-        return Time.ToLocal(Time.UtcNow())
+    def NowLocal() -> datetime:
+        return Time.ToLocal(Time.NowUtc())
     
     @staticmethod
     def Now(tz: timezone = None) -> datetime:
         if tz is None:
             tz = Time.TIMEZONE_LOCAL
-        return Time.ToTimezone(Time.UtcNow(), tz)
+        return Time.ToTimezone(Time.NowUtc(), tz)
 
     @staticmethod
     def ToTimezone(src: datetime, tz: timezone) -> datetime:
@@ -137,6 +137,34 @@ class Time:
     def Sleep(ms: int):
         sec = float(ms) / 1000.0
         systime.sleep(sec)
+
+    @staticmethod
+    def ToYYYYMMDD(dt: datetime) -> str:
+        return dt.strftime("%Y%m%d")
+
+    @staticmethod
+    def ToHHMMSS(dt: datetime) -> str:
+        return dt.strftime("%H%M%S")
+
+    @staticmethod
+    def ToYYYYMMDDHHMMSS(dt: datetime) -> str:
+        return Time.ToYYYYMMDD(dt) + Time.ToHHMMSS(dt)
+
+    @staticmethod
+    def ToYYYYMMDD_HHMMSS(dt: datetime) -> str:
+        return Time.ToYYYYMMDD(dt) + "_" + Time.ToHHMMSS(dt)
+
+    @staticmethod
+    def NowYYYYMMDD() -> str:
+        return Time.ToYYYYMMDD(Time.NowLocal())
+    
+    @staticmethod
+    def NowYYYYMMDDHHMMSS() -> str:
+        return Time.ToYYYYMMDDHHMMSS(Time.NowLocal())
+    
+    @staticmethod
+    def NowYYYYMMDD_HHMMSS() -> str:
+        return Time.ToYYYYMMDD_HHMMSS(Time.NowLocal())
 
 
 class Str:
@@ -193,6 +221,14 @@ class Str:
         if (s1 < s2):
             return 1
         return -1
+    
+    # 複数の文字列を置換する
+    @staticmethod
+    def ReplaceMultiStr(src: str, replaceList: Dict[str, str], caseSensitive: bool = False) -> str:
+        src = Str.NonNull(src)
+        for key, value in replaceList.items():
+            src = Str.ReplaceStr(src, key, value, caseSensitive)
+        return src
 
     # 文字列を置換する
     @staticmethod
@@ -378,7 +414,22 @@ class Str:
         src = Str.GetStr(src)
         lines = Str.GetLines(src, removeEmpty=True, trim=True)
         return Str.Combine(lines, splitStr, removeEmpty)
-
+    
+    @staticmethod
+    def NormalizeFqdn(src: str) -> str:
+        s = Str.Trim(src).lower()
+        tokens = s.split(".")
+        o: List[str] = list()
+        for token in tokens:
+            if Str.IsFilled(token):
+                for c in token:
+                    if not ((c >= "a" and c <= "z") or (c >= "0" and c <= "9") or c == "-" or c == "_"):
+                        raise Err(f"Invalid FQDN: '{src}'")
+                o.append(token)
+        ret = Str.Combine(o, ".", removeEmpty=True)
+        if Str.IsEmpty(ret):
+            raise Err(f"Invalid FQDN: '{src}'")
+        return ret
 
 def Print(obj: any) -> str:
     s = Str.GetStr(obj)

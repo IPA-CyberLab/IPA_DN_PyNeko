@@ -22,12 +22,37 @@ class Lfs:
         mode += "b" if binary else "t"
         mode += "+" if write else ""
         return open(fn, mode)
-    
+
+    @staticmethod
+    def Create(fn: str, binary: bool = False) -> IO:
+        mode = "w"
+        mode += "b" if binary else "t"
+        Lfs._CreateDirectoryForFilePath(fn)
+        return open(fn, mode)
+
     @staticmethod
     def ReadAllText(fn: str) -> str:
         with Lfs.Open(fn) as f:
             ret = f.read()
             return Str.NonNull(ret)
+    
+    @staticmethod
+    def WriteAllText(fn: str, body: str) -> str:
+        with Lfs.Create(fn) as f:
+            f.write(body)
+    
+    @staticmethod
+    def CreateDirectory(dir: str):
+        os.makedirs(dir, exist_ok=True)
+
+    @staticmethod
+    def _CreateDirectoryForFilePath(fn: str):
+        dirPath = os.path.dirname(fn)
+        if Str.IsFilled(dirPath):
+            Lfs.CreateDirectory(dirPath)
+
+
+
 
 
 
