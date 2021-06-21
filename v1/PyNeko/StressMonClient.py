@@ -23,7 +23,7 @@ from ._Imports import *
 SameType = TypeVar("SameType")
 
 class StressMonClient:
-    BaseUrl = "http://nd-stressmon-server.ipantt.net:7010/a"
+    BaseUrl = "http://nd-stressmon-server.ipantt.net:7010/"
     HostName = Env.GetHostName()
 
     def Report(self, body: str):
