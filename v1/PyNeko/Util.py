@@ -572,14 +572,16 @@ class EasyExecResults:
 
 class EasyExec:
     @staticmethod
+    # 注意! timeoutSecs でタイムアウトを指定し、タイムアウト発生時には kill するためには、shell = False にしなければならない。
     def Run(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None):
         res = subprocess.run(command, shell=shell,
                              encoding="utf-8", text=True, timeout=timeoutSecs)
-
+        
         if not ignoreError:
             res.check_returncode()
 
     @staticmethod
+    # 注意! timeoutSecs でタイムアウトを指定し、タイムアウト発生時には kill するためには、shell = False にしなければならない。
     def RunPiped(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None) -> EasyExecResults:
         res = subprocess.run(command, shell=shell, encoding="utf-8", text=True,
                              timeout=timeoutSecs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
