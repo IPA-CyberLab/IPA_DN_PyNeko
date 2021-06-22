@@ -392,6 +392,9 @@ class Str:
         if Util.IsTypeOf(object, str):
             return object
 
+        if Util.IsTypeOf(object, Exception):
+            return F"{object}"
+
         if Util.IsSimpleValue(object):
             return str(object)
 
@@ -452,6 +455,11 @@ class Str:
 def Print(obj: any) -> str:
     s = Str.GetStr(obj)
     print(s)
+    return s
+
+def PrintLog(obj:any) -> str:
+    s = Str.GetStr(obj)
+    print(f"{Time.NowLocal()}: {s}")
     return s
 
 
@@ -574,6 +582,9 @@ class EasyExec:
     @staticmethod
     # 注意! timeoutSecs でタイムアウトを指定し、タイムアウト発生時には kill するためには、shell = False にしなければならない。
     def Run(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None):
+        if shell and timeoutSecs is not None:
+            raise Err("shell == True and timeoutSecs is not None.")
+
         res = subprocess.run(command, shell=shell,
                              encoding="utf-8", text=True, timeout=timeoutSecs)
         
@@ -583,6 +594,9 @@ class EasyExec:
     @staticmethod
     # 注意! timeoutSecs でタイムアウトを指定し、タイムアウト発生時には kill するためには、shell = False にしなければならない。
     def RunPiped(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None) -> EasyExecResults:
+        if shell and timeoutSecs is not None:
+            raise Err("shell == True and timeoutSecs is not None.")
+
         res = subprocess.run(command, shell=shell, encoding="utf-8", text=True,
                              timeout=timeoutSecs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -595,8 +609,9 @@ class EasyExec:
         return ret
 
     @staticmethod
-    def RunBackground(command: List[str], shell: bool = True) -> subprocess.Popen:
-        res = subprocess.Popen(command, shell=shell, text=True)
+    def RunBackground(command: List[str], shell: bool = True, cwd: str = None, stdin=None, stdout=None, stderr=None) -> subprocess.Popen:
+        res = subprocess.Popen(command, shell=shell, text=True,
+                               cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr)
 
         return res
 
