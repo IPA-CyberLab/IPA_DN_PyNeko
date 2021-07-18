@@ -40,10 +40,21 @@ class Lfs:
             return Str.NonNull(ret)
     
     @staticmethod
-    def WriteAllText(fn: str, body: str) -> str:
+    def WriteAllText(fn: str, body: str):
         with Lfs.Create(fn) as f:
             f.write(body)
     
+    @staticmethod
+    def ReadAllData(fn: str) -> bytes:
+        with Lfs.Open(fn, binary=True) as f:
+            ret = f.read()
+            return ret
+
+    @staticmethod
+    def WriteAllData(fn: str, body: bytes):
+        with Lfs.Create(fn, binary=True) as f:
+            f.write(body)
+
     @staticmethod
     def CreateDirectory(dir: str):
         os.makedirs(dir, exist_ok=True)
