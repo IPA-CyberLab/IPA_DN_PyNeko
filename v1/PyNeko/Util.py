@@ -16,6 +16,9 @@ import subprocess
 import inspect
 import typing
 import time as systime
+import secrets
+import random
+
 from typing import List, Tuple, Dict, Set, Callable, TypeVar, Type
 from datetime import timedelta, tzinfo, timezone, time, date, datetime
 
@@ -389,6 +392,9 @@ class Str:
         if Util.IsTypeOf(object, str):
             return object
 
+        if Util.IsTypeOf(object, Exception):
+            return F"{object}"
+
         if Util.IsSimpleValue(object):
             return str(object)
 
@@ -434,10 +440,26 @@ class Str:
         if Str.IsEmpty(ret):
             raise Err(f"Invalid FQDN: '{src}'")
         return ret
+    
+    @staticmethod
+    def DecodeUtf8(src: bytes) -> str:
+        if Util.IsNull(src):
+            return ""
+        return Str.NonNull(src.decode("utf-8"))
+    
+    @staticmethod
+    def EncodeUtf8(src: str) -> bytes:
+        src = Str.NonNull(src)
+        return src.encode("utf-8")
 
 def Print(obj: any) -> str:
     s = Str.GetStr(obj)
     print(s)
+    return s
+
+def PrintLog(obj:any) -> str:
+    s = Str.GetStr(obj)
+    print(f"{Time.NowLocal()}: {s}")
     return s
 
 
@@ -479,6 +501,10 @@ class Util:
         return isinstance(object, baseType)
 
     @staticmethod
+    def IsBinary(object: any) -> bool:
+        return Util.IsType(object, "bytes")
+
+    @staticmethod
     def IsClass(object: any) -> bool:
         return hasattr(object, "__dict__")
 
@@ -505,6 +531,20 @@ class Util:
         if Util.IsClass(object):
             return Util.GetClassAttributes(object)
         return object
+    
+    @staticmethod
+    def GenRandInterval(standard: float, plusMinusPercentage: float = 30.0) -> float:
+        rate = plusMinusPercentage * (Rand.SInt31() % 10000) / 10000.0 / 100.0
+        v = standard * rate
+        if (v == 0.0):
+            return standard
+        b = Rand.Bool()
+        if b:
+            ret = standard + standard * rate
+        else:
+            ret = standard - standard * rate
+        return max(ret, 0.001)
+       
 
 
 class EasyExecResults:
@@ -540,15 +580,23 @@ class EasyExecResults:
 
 class EasyExec:
     @staticmethod
+    # 注意! timeoutSecs でタイムアウトを指定し、タイムアウト発生時には kill するためには、shell = False にしなければならない。
     def Run(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None):
+        if shell and timeoutSecs is not None:
+            raise Err("shell == True and timeoutSecs is not None.")
+
         res = subprocess.run(command, shell=shell,
                              encoding="utf-8", text=True, timeout=timeoutSecs)
-
+        
         if not ignoreError:
             res.check_returncode()
 
     @staticmethod
+    # 注意! timeoutSecs でタイムアウトを指定し、タイムアウト発生時には kill するためには、shell = False にしなければならない。
     def RunPiped(command: List[str], shell: bool = True, ignoreError: bool = False, timeoutSecs: int = None) -> EasyExecResults:
+        if shell and timeoutSecs is not None:
+            raise Err("shell == True and timeoutSecs is not None.")
+
         res = subprocess.run(command, shell=shell, encoding="utf-8", text=True,
                              timeout=timeoutSecs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -561,10 +609,23 @@ class EasyExec:
         return ret
 
     @staticmethod
-    def RunBackground(command: List[str], shell: bool = True) -> subprocess.Popen:
-        res = subprocess.Popen(command, shell=shell, text=True)
+    def RunBackground(command: List[str], shell: bool = True, cwd: str = None, stdin=None, stdout=None, stderr=None) -> subprocess.Popen:
+        res = subprocess.Popen(command, shell=shell, text=True,
+                               cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr)
 
         return res
+
+class Rand:
+    @staticmethod
+    def SInt31() -> int:
+        return secrets.randbelow(2147483648)
+    
+    @staticmethod
+    def Bool() -> bool:
+        b = Rand.SInt31()
+        if (b % 2) == 1:
+            return True
+        return False
 
 
 class Json:
