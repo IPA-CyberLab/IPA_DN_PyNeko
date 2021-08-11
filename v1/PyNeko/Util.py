@@ -544,6 +544,38 @@ class Util:
         else:
             ret = standard - standard * rate
         return max(ret, 0.001)
+    
+    @staticmethod
+    def GetSingleHostCertAndIntermediateCertsFromCombinedCert(src: str) -> Tuple[str, str]:
+        lines = Str.GetLines(src, trim=True)
+        flag = 0
+
+        cert0_body = ""
+        cert1_body = ""
+
+        current_cert = ""
+        cert_index = 0
+
+        for line in lines:
+            if line == "-----BEGIN CERTIFICATE-----":
+                flag = 1
+                current_cert += line + "\n"
+            elif line == "-----END CERTIFICATE-----":
+                flag = 0
+                current_cert += line + "\n"
+                if cert_index == 0:
+                    cert0_body = current_cert
+                else:
+                    cert1_body += current_cert
+                    cert1_body += "\n"
+                cert_index += 1
+                current_cert = ""
+            else:
+                if flag == 1:
+                    current_cert += line + "\n"
+        
+        return (cert0_body, cert1_body)
+
        
 
 
