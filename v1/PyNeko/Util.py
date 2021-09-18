@@ -809,7 +809,8 @@ class OpenSslUtil:
     def OcspIsCertificateRevoked(certPath: str, interPath: str) -> bool:
         try:
             Print(F"Checking OCSP for '{certPath}' ...")
-            ret = OcspIsCertificateRevokedInternal(certPath, interPath)
+            ret = OpenSslUtil.OcspIsCertificateRevokedInternal(
+                certPath, interPath)
             Print(F"OCSP Result: Is revoked: {ret}")
             return ret
         except Exception as e:
