@@ -812,6 +812,7 @@ class OpenSslUtil:
             ret = OcspIsCertificateRevokedInternal(certPath, interPath)
             Print(F"OCSP Result: Is revoked: {ret}")
             return ret
-        except:
-            Print(F"OCSP Check Error.")
+        except Exception as e:
+            Print("OCSP Check Error.")
+            Print(e)
             return False
