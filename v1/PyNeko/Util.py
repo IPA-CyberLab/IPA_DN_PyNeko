@@ -784,3 +784,34 @@ class Json:
                         setattr(instance, name, value)
 
             return instance
+
+class OpenSslUtil:
+
+    @staticmethod
+    def OcspIsCertificateRevokedInternal(certPath: str, interPath: str) -> bool:
+        url = GetOcspServerUrlFromCert(certPath)
+
+        res = EasyExec.RunPiped(
+            F"openssl ocsp -issuer {interPath} -cert {certPath} -text -url {url}".split(),
+            shell=False,
+            timeoutSecs=15)
+
+        lines = Str.GetLines(res.StdOutAndErr)
+
+        for line in lines:
+            if (Str.InStr(line, "Cert Status: revoked")):
+                return True
+
+        return False
+
+
+    @staticmethod
+    def OcspIsCertificateRevoked(certPath: str, interPath: str) -> bool:
+        try:
+            Print(F"Checking OCSP for '{certPath}' ...")
+            ret = OcspIsCertificateRevokedInternal(certPath, interPath)
+            Print(F"OCSP Result: Is revoked: {ret}")
+            return ret
+        except:
+            Print(F"OCSP Check Error.")
+            return False
