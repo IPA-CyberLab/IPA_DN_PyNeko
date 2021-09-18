@@ -418,6 +418,14 @@ class Str:
                 ret += splitStr
 
         return ret
+    
+    @staticmethod
+    def GetFirstFilledLine(src: str) -> str:
+        src = Str.GetStr(src)
+        lines = Str.GetLines(src, removeEmpty=True, trim=True)
+        for line in lines:
+            return line
+        return ""
 
     @staticmethod
     def OneLine(src: str, splitStr: str = " / ", removeEmpty: bool = True) -> str:
