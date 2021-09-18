@@ -788,8 +788,17 @@ class Json:
 class OpenSslUtil:
 
     @staticmethod
+    def GetOcspServerUrlFromCert(certPath: str) -> str:
+        res = EasyExec.RunPiped(
+            F"openssl x509 -noout -ocsp_uri -in {certPath}".split(),
+            shell=False,
+            timeoutSecs=15)
+
+        return Str.GetFirstFilledLine(res.StdOut)
+
+    @staticmethod
     def OcspIsCertificateRevokedInternal(certPath: str, interPath: str) -> bool:
-        url = GetOcspServerUrlFromCert(certPath)
+        url = OpenSslUtil.GetOcspServerUrlFromCert(certPath)
 
         res = EasyExec.RunPiped(
             F"openssl ocsp -issuer {interPath} -cert {certPath} -text -url {url}".split(),
