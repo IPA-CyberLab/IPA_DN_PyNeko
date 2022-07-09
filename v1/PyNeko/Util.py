@@ -418,6 +418,14 @@ class Str:
                 ret += splitStr
 
         return ret
+    
+    @staticmethod
+    def GetFirstFilledLine(src: str) -> str:
+        src = Str.GetStr(src)
+        lines = Str.GetLines(src, removeEmpty=True, trim=True)
+        for line in lines:
+            return line
+        return ""
 
     @staticmethod
     def OneLine(src: str, splitStr: str = " / ", removeEmpty: bool = True) -> str:
@@ -544,6 +552,38 @@ class Util:
         else:
             ret = standard - standard * rate
         return max(ret, 0.001)
+    
+    @staticmethod
+    def GetSingleHostCertAndIntermediateCertsFromCombinedCert(src: str) -> Tuple[str, str]:
+        lines = Str.GetLines(src, trim=True)
+        flag = 0
+
+        cert0_body = ""
+        cert1_body = ""
+
+        current_cert = ""
+        cert_index = 0
+
+        for line in lines:
+            if line == "-----BEGIN CERTIFICATE-----":
+                flag = 1
+                current_cert += line + "\n"
+            elif line == "-----END CERTIFICATE-----":
+                flag = 0
+                current_cert += line + "\n"
+                if cert_index == 0:
+                    cert0_body = current_cert
+                else:
+                    cert1_body += current_cert
+                    cert1_body += "\n"
+                cert_index += 1
+                current_cert = ""
+            else:
+                if flag == 1:
+                    current_cert += line + "\n"
+        
+        return (cert0_body, cert1_body)
+
        
 
 
@@ -744,3 +784,45 @@ class Json:
                         setattr(instance, name, value)
 
             return instance
+
+class OpenSslUtil:
+
+    @staticmethod
+    def GetOcspServerUrlFromCert(certPath: str) -> str:
+        res = EasyExec.RunPiped(
+            F"openssl x509 -noout -ocsp_uri -in {certPath}".split(),
+            shell=False,
+            timeoutSecs=15)
+
+        return Str.GetFirstFilledLine(res.StdOut)
+
+    @staticmethod
+    def OcspIsCertificateRevokedInternal(certPath: str, interPath: str) -> bool:
+        url = OpenSslUtil.GetOcspServerUrlFromCert(certPath)
+
+        res = EasyExec.RunPiped(
+            F"openssl ocsp -issuer {interPath} -cert {certPath} -text -url {url}".split(),
+            shell=False,
+            timeoutSecs=15)
+
+        lines = Str.GetLines(res.StdOutAndErr)
+
+        for line in lines:
+            if (Str.InStr(line, "Cert Status: revoked")):
+                return True
+
+        return False
+
+
+    @staticmethod
+    def OcspIsCertificateRevoked(certPath: str, interPath: str) -> bool:
+        try:
+            Print(F"Checking OCSP for '{certPath}' ...")
+            ret = OpenSslUtil.OcspIsCertificateRevokedInternal(
+                certPath, interPath)
+            Print(F"OCSP Result: Is revoked: {ret}")
+            return ret
+        except Exception as e:
+            Print("OCSP Check Error.")
+            Print(e)
+            return False
