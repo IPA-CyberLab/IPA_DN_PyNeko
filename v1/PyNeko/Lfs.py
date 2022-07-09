@@ -15,6 +15,7 @@ import subprocess
 import inspect
 from typing import List, Tuple, Dict, Set, Callable, TypeVar, Type, IO
 import typing
+import shutil
 
 from ._Imports import *
 
@@ -46,7 +47,21 @@ class Lfs:
     
     @staticmethod
     def CreateDirectory(dir: str):
+        if Lfs.IsDirectoryExists(dir):
+            return
         os.makedirs(dir, exist_ok=True)
+    
+    @staticmethod
+    def IsDirectoryExists(dir: str):
+        return os.path.isdir(dir)
+
+    @staticmethod
+    def DeleteDirectoryRecursively(dir: str):
+        if not Lfs.IsDirectoryExists(dir):
+            return
+        if Str.IsEmpty(dir) or Str.IsSamei(dir, "/"):
+            raise "dir is root dir."
+        shutil.rmtree(dir)
 
     @staticmethod
     def _CreateDirectoryForFilePath(fn: str):
