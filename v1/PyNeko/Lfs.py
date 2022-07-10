@@ -65,6 +65,14 @@ class Lfs:
     @staticmethod
     def IsDirectoryExists(dir: str):
         return os.path.isdir(dir)
+    
+    @staticmethod
+    def IsFileExists(path: str):
+        return os.path.isfile(path)
+
+    @staticmethod
+    def DeleteFile(path: str):
+        os.remove(path)
 
     @staticmethod
     def DeleteDirectoryRecursively(dir: str):
