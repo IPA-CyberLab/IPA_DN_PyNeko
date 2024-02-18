@@ -474,6 +474,11 @@ def PrintLog(obj:any) -> str:
 def GetStr(obj: any) -> str:
     return Str.GetStr(obj)
 
+def DoNothing():
+    return 0
+
+def NoOp():
+    return 0
 
 class Util:
     @staticmethod
